@@ -24,22 +24,17 @@ type GroupData = {
 export default function GroupPage() {
   const { groupId } = useParams<{ groupId: string }>();
   const [group, setGroup] = useState<GroupData | null>(null);
-  const [myName, setMyName] = useState("");
-  const [myMemberId, setMyMemberId] = useState<string | null>(null);
   const [nameInput, setNameInput] = useState("");
   const [tab, setTab] = useState<"expenses" | "settlement">("expenses");
   const [copied, setCopied] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
-  // Add expense form
   const [expDesc, setExpDesc] = useState("");
   const [expAmount, setExpAmount] = useState("");
   const [expPayerId, setExpPayerId] = useState("");
   const [expSplitIds, setExpSplitIds] = useState<string[]>([]);
   const [addingExp, setAddingExp] = useState(false);
   const [showExpForm, setShowExpForm] = useState(false);
-
-  const storageKey = `warikan-member-${groupId}`;
 
   const fetchGroup = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}`);
@@ -48,36 +43,31 @@ export default function GroupPage() {
     setGroup(data);
   }, [groupId]);
 
-  useEffect(() => {
-    fetchGroup();
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      const { id, name } = JSON.parse(saved);
-      setMyMemberId(id);
-      setMyName(name);
-    }
-  }, [fetchGroup, storageKey]);
+  useEffect(() => { fetchGroup(); }, [fetchGroup]);
 
-  // Auto-select all members for split when members change
   useEffect(() => {
     if (group) setExpSplitIds(group.members.map((m) => m.id));
   }, [group?.members.length]);
 
-  async function addMember(e: React.FormEvent, asSelf: boolean) {
+  async function addMember(e: React.FormEvent) {
     e.preventDefault();
     if (!nameInput.trim()) return;
-    const res = await fetch(`/api/groups/${groupId}/members`, {
+    await fetch(`/api/groups/${groupId}/members`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: nameInput.trim() }),
     });
-    const member = await res.json();
-    if (asSelf) {
-      localStorage.setItem(storageKey, JSON.stringify({ id: member.id, name: member.name }));
-      setMyMemberId(member.id);
-      setMyName(member.name);
-    }
     setNameInput("");
+    fetchGroup();
+  }
+
+  async function deleteMember(memberId: string) {
+    const res = await fetch(`/api/groups/${groupId}/members/${memberId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const data = await res.json();
+      alert(data.error);
+      return;
+    }
     fetchGroup();
   }
 
@@ -140,15 +130,9 @@ export default function GroupPage() {
     );
   }
 
-  // Calculate balances for settlement
   const balances = group.members.map((m) => {
-    const paid = group.expenses
-      .filter((e) => e.payer.id === m.id)
-      .reduce((s, e) => s + e.amount, 0);
-    const owed = group.expenses
-      .flatMap((e) => e.splits)
-      .filter((s) => s.memberId === m.id)
-      .reduce((s, sp) => s + sp.amount, 0);
+    const paid = group.expenses.filter((e) => e.payer.id === m.id).reduce((s, e) => s + e.amount, 0);
+    const owed = group.expenses.flatMap((e) => e.splits).filter((s) => s.memberId === m.id).reduce((s, sp) => s + sp.amount, 0);
     return { memberId: m.id, name: m.name, pokemonId: m.pokemonId, amount: paid - owed };
   });
   const transfers = calcSettlement(balances);
@@ -159,122 +143,59 @@ export default function GroupPage() {
       <div className="pt-6 pb-4">
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-2xl font-bold text-gray-800">{group.name}</h1>
-          <button
-            onClick={copyUrl}
-            className="text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-medium"
-          >
+          <button onClick={copyUrl} className="text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-medium">
             {copied ? "コピーした!" : "URLをコピー"}
           </button>
         </div>
         <p className="text-xs text-gray-400">このURLを友達にLINEで送ろう</p>
       </div>
 
-      {/* Join / Add member section */}
-      <div className="bg-white rounded-2xl shadow-sm p-5 mb-4">
-        {myMemberId ? (
-          <>
-            <p className="text-sm text-emerald-700 font-medium mb-3">✓ {myName} として参加中</p>
-            <form onSubmit={(e) => addMember(e, false)} className="flex gap-2">
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                placeholder="他のメンバーの名前を追加"
-                className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                maxLength={20}
-              />
-              <button
-                type="submit"
-                className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap"
-              >
-                追加
-              </button>
-            </form>
-          </>
-        ) : (
-          <>
-            {group.members.length > 0 && (
-              <>
-                <p className="font-medium text-gray-700 mb-3">あなたは誰ですか？</p>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {group.members.map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        localStorage.setItem(storageKey, JSON.stringify({ id: m.id, name: m.name }));
-                        setMyMemberId(m.id);
-                        setMyName(m.name);
-                      }}
-                      className="flex items-center gap-2 border border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl px-3 py-2 text-sm transition-colors"
-                    >
-                      <img src={getPokemonSprite(m.pokemonId)} alt={m.name} width={28} height={28} className="pixelated" />
-                      {m.name}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-xs text-gray-400 mb-2">一覧にいない場合は新しく参加</p>
-              </>
-            )}
-            <form onSubmit={(e) => addMember(e, true)} className="flex gap-2">
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                placeholder="名前を入力して参加"
-                className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-                maxLength={20}
-                required
-              />
-              <button
-                type="submit"
-                className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap"
-              >
-                参加
-              </button>
-            </form>
-          </>
-        )}
-      </div>
-
       {/* Members */}
       <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">メンバー</p>
-        <div className="flex flex-wrap gap-3">
-          {group.members.map((m) => {
-            return (
-              <div key={m.id} className="flex flex-col items-center gap-1">
-                <img
-                  src={getPokemonSprite(m.pokemonId)}
-                  alt={m.name}
-                  width={48}
-                  height={48}
-                  className="pixelated"
-                />
-                <span className="text-xs text-gray-700 font-medium">{m.name}</span>
-              </div>
-            );
-          })}
+        <div className="flex flex-wrap gap-3 mb-3">
+          {group.members.map((m) => (
+            <div key={m.id} className="flex flex-col items-center gap-1 relative">
+              <img src={getPokemonSprite(m.pokemonId)} alt={m.name} width={48} height={48} className="pixelated" />
+              <span className="text-xs text-gray-700 font-medium">{m.name}</span>
+              <button
+                onClick={() => deleteMember(m.id)}
+                className="absolute -top-1 -right-1 w-4 h-4 bg-gray-300 hover:bg-red-400 text-white rounded-full text-xs flex items-center justify-center leading-none"
+              >
+                ×
+              </button>
+            </div>
+          ))}
           {group.members.length === 0 && (
             <span className="text-gray-400 text-sm">まだ誰もいません</span>
           )}
         </div>
+        <form onSubmit={addMember} className="flex gap-2">
+          <input
+            type="text"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder="名前を入力してメンバー追加"
+            className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            maxLength={20}
+          />
+          <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">
+            追加
+          </button>
+        </form>
       </div>
 
       {/* Tabs */}
       <div className="flex bg-gray-200 rounded-xl p-1 mb-4">
         <button
           onClick={() => setTab("expenses")}
-          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            tab === "expenses" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
-          }`}
+          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${tab === "expenses" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}
         >
           支払い一覧
         </button>
         <button
           onClick={() => setTab("settlement")}
-          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${
-            tab === "settlement" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"
-          }`}
+          className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-colors ${tab === "settlement" ? "bg-white text-gray-800 shadow-sm" : "text-gray-500"}`}
         >
           精算
         </button>
@@ -283,7 +204,7 @@ export default function GroupPage() {
       {/* Expenses tab */}
       {tab === "expenses" && (
         <div className="space-y-3">
-          {myMemberId && (
+          {group.members.length >= 2 && (
             <button
               onClick={() => setShowExpForm(!showExpForm)}
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm transition-colors"
@@ -292,12 +213,8 @@ export default function GroupPage() {
             </button>
           )}
 
-          {/* Add expense form */}
-          {showExpForm && myMemberId && (
-            <form
-              onSubmit={addExpense}
-              className="bg-white rounded-2xl shadow-sm p-5 space-y-4"
-            >
+          {showExpForm && (
+            <form onSubmit={addExpense} className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
               <p className="font-semibold text-gray-700">支払いを追加</p>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">内容</label>
@@ -345,9 +262,7 @@ export default function GroupPage() {
                       type="button"
                       onClick={() => toggleSplit(m.id)}
                       className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                        expSplitIds.includes(m.id)
-                          ? "bg-emerald-500 text-white border-emerald-500"
-                          : "bg-white text-gray-600 border-gray-300"
+                        expSplitIds.includes(m.id) ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-gray-600 border-gray-300"
                       }`}
                     >
                       {m.name}
@@ -360,41 +275,27 @@ export default function GroupPage() {
                   </p>
                 )}
               </div>
-              <button
-                type="submit"
-                disabled={addingExp}
-                className="w-full bg-emerald-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl text-sm"
-              >
+              <button type="submit" disabled={addingExp} className="w-full bg-emerald-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl text-sm">
                 {addingExp ? "追加中..." : "追加する"}
               </button>
             </form>
           )}
 
-          {/* Expense list */}
           {group.expenses.length === 0 ? (
-            <div className="text-center text-gray-400 py-8 text-sm">
-              まだ支払いがありません
-            </div>
+            <div className="text-center text-gray-400 py-8 text-sm">まだ支払いがありません</div>
           ) : (
             group.expenses.map((exp) => (
               <div key={exp.id} className="bg-white rounded-2xl shadow-sm p-4">
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-gray-800">{exp.description}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {exp.payer.name}が支払い・{exp.splits.length}人で割り勘
-                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5">{exp.payer.name}が支払い・{exp.splits.length}人で割り勘</p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-800">¥{exp.amount.toLocaleString()}</p>
-                    {exp.payer.id === myMemberId && (
-                      <button
-                        onClick={() => deleteExpense(exp.id)}
-                        className="text-xs text-red-400 hover:text-red-600 mt-1"
-                      >
-                        削除
-                      </button>
-                    )}
+                    <button onClick={() => deleteExpense(exp.id)} className="text-xs text-red-400 hover:text-red-600 mt-1">
+                      削除
+                    </button>
                   </div>
                 </div>
               </div>
@@ -406,34 +307,21 @@ export default function GroupPage() {
       {/* Settlement tab */}
       {tab === "settlement" && (
         <div className="space-y-3">
-          {/* Balance summary */}
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">残高</p>
             {balances.map((b) => (
               <div key={b.memberId} className="flex justify-between items-center py-1.5 border-b last:border-0">
                 <div className="flex items-center gap-2">
-                  <img
-                    src={getPokemonSprite(b.pokemonId)}
-                    alt={b.name}
-                    width={32}
-                    height={32}
-                    className="pixelated"
-                  />
+                  <img src={getPokemonSprite(b.pokemonId)} alt={b.name} width={32} height={32} className="pixelated" />
                   <span className="text-sm text-gray-700">{b.name}</span>
                 </div>
-                <span
-                  className={`text-sm font-bold ${
-                    b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-red-500" : "text-gray-400"
-                  }`}
-                >
-                  {b.amount > 0 ? "+" : ""}
-                  ¥{Math.round(b.amount).toLocaleString()}
+                <span className={`text-sm font-bold ${b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-red-500" : "text-gray-400"}`}>
+                  {b.amount > 0 ? "+" : ""}¥{Math.round(b.amount).toLocaleString()}
                 </span>
               </div>
             ))}
           </div>
 
-          {/* Transfers */}
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">精算方法</p>
             {transfers.length === 0 ? (
@@ -444,9 +332,7 @@ export default function GroupPage() {
                   <span className="text-sm font-medium text-red-500">{t.from}</span>
                   <span className="text-gray-400 text-sm">→</span>
                   <span className="text-sm font-medium text-emerald-600">{t.to}</span>
-                  <span className="ml-auto text-sm font-bold text-gray-800">
-                    ¥{t.amount.toLocaleString()}
-                  </span>
+                  <span className="ml-auto text-sm font-bold text-gray-800">¥{t.amount.toLocaleString()}</span>
                 </div>
               ))
             )}
