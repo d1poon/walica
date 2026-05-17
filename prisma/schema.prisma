@@ -11,6 +11,7 @@ model Group {
   id        String    @id
   name      String
   createdAt DateTime  @default(now())
+  closedAt  DateTime?
   members   Member[]
   expenses  Expense[]
 }

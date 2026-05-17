@@ -17,6 +17,7 @@ type Expense = {
 type GroupData = {
   id: string;
   name: string;
+  closedAt: string | null;
   members: Member[];
   expenses: Expense[];
 };
@@ -35,6 +36,9 @@ export default function GroupPage() {
   const [expSplitIds, setExpSplitIds] = useState<string[]>([]);
   const [addingExp, setAddingExp] = useState(false);
   const [showExpForm, setShowExpForm] = useState(false);
+  const [closeStep, setCloseStep] = useState<0 | 1 | 2>(0);
+  const [countdown, setCountdown] = useState(3);
+  const [countingDown, setCountingDown] = useState(false);
 
   const fetchGroup = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}`);
@@ -93,6 +97,33 @@ export default function GroupPage() {
     fetchGroup();
   }
 
+  function startCountdown() {
+    setCountdown(3);
+    setCountingDown(true);
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setCountingDown(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  }
+
+  async function closeGroup() {
+    await fetch(`/api/groups/${groupId}/close`, { method: "POST" });
+    setCloseStep(0);
+    fetchGroup();
+  }
+
+  function copySettlement() {
+    const lines = transfers.map((t) => `${t.from} → ${t.to}　¥${t.amount.toLocaleString()}`);
+    const text = `【${group!.name}・精算結果】\n${lines.join("\n")}`;
+    navigator.clipboard.writeText(text);
+  }
+
   async function deleteExpense(expenseId: string) {
     await fetch(`/api/groups/${groupId}/expenses/${expenseId}`, { method: "DELETE" });
     fetchGroup();
@@ -130,6 +161,7 @@ export default function GroupPage() {
     );
   }
 
+  const isClosed = !!group.closedAt;
   const balances = group.members.map((m) => {
     const paid = group.expenses.filter((e) => e.payer.id === m.id).reduce((s, e) => s + e.amount, 0);
     const owed = group.expenses.flatMap((e) => e.splits).filter((s) => s.memberId === m.id).reduce((s, sp) => s + sp.amount, 0);
@@ -150,6 +182,12 @@ export default function GroupPage() {
         <p className="text-xs text-gray-400">このURLを友達にLINEで送ろう</p>
       </div>
 
+      {isClosed && (
+        <div className="bg-gray-800 text-white rounded-2xl px-4 py-3 mb-4 text-sm font-medium text-center">
+          ✓ このグループは精算確定済みです
+        </div>
+      )}
+
       {/* Members */}
       <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">メンバー</p>
@@ -158,19 +196,21 @@ export default function GroupPage() {
             <div key={m.id} className="flex flex-col items-center gap-1 relative">
               <img src={getPokemonSprite(m.pokemonId)} alt={m.name} width={48} height={48} className="pixelated" />
               <span className="text-xs text-gray-700 font-medium">{m.name}</span>
-              <button
-                onClick={() => deleteMember(m.id)}
-                className="absolute -top-1 -right-1 w-4 h-4 bg-gray-300 hover:bg-red-400 text-white rounded-full text-xs flex items-center justify-center leading-none"
-              >
-                ×
-              </button>
+              {!isClosed && (
+                <button
+                  onClick={() => deleteMember(m.id)}
+                  className="absolute -top-1 -right-1 w-4 h-4 bg-gray-300 hover:bg-red-400 text-white rounded-full text-xs flex items-center justify-center leading-none"
+                >
+                  ×
+                </button>
+              )}
             </div>
           ))}
           {group.members.length === 0 && (
             <span className="text-gray-400 text-sm">まだ誰もいません</span>
           )}
         </div>
-        <form onSubmit={addMember} className="flex gap-2">
+        {!isClosed && <form onSubmit={addMember} className="flex gap-2">
           <input
             type="text"
             value={nameInput}
@@ -182,7 +222,7 @@ export default function GroupPage() {
           <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">
             追加
           </button>
-        </form>
+        </form>}
       </div>
 
       {/* Tabs */}
@@ -204,7 +244,7 @@ export default function GroupPage() {
       {/* Expenses tab */}
       {tab === "expenses" && (
         <div className="space-y-3">
-          {group.members.length >= 2 && (
+          {!isClosed && group.members.length >= 2 && (
             <button
               onClick={() => setShowExpForm(!showExpForm)}
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm transition-colors"
@@ -293,9 +333,11 @@ export default function GroupPage() {
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-800">¥{exp.amount.toLocaleString()}</p>
-                    <button onClick={() => deleteExpense(exp.id)} className="text-xs text-red-400 hover:text-red-600 mt-1">
-                      削除
-                    </button>
+                    {!isClosed && (
+                      <button onClick={() => deleteExpense(exp.id)} className="text-xs text-red-400 hover:text-red-600 mt-1">
+                        削除
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -336,6 +378,85 @@ export default function GroupPage() {
                 </div>
               ))
             )}
+          </div>
+
+          {isClosed ? (
+            <button
+              onClick={copySettlement}
+              className="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-xl text-sm transition-colors"
+            >
+              結果をコピー（LINEに貼れる）
+            </button>
+          ) : (
+            <button
+              onClick={() => setCloseStep(1)}
+              className="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl text-sm transition-colors"
+            >
+              精算を確定する
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Step 1 modal */}
+      {closeStep === 1 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <p className="font-bold text-gray-800 text-lg">精算内容の確認</p>
+            <div className="bg-gray-50 rounded-xl p-4 space-y-2">
+              {transfers.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center">精算は不要です ✓</p>
+              ) : (
+                transfers.map((t, i) => (
+                  <div key={i} className="flex items-center gap-2 text-sm">
+                    <span className="font-medium text-red-500">{t.from}</span>
+                    <span className="text-gray-400">→</span>
+                    <span className="font-medium text-emerald-600">{t.to}</span>
+                    <span className="ml-auto font-bold">¥{t.amount.toLocaleString()}</span>
+                  </div>
+                ))
+              )}
+            </div>
+            <p className="text-sm text-gray-500">この内容で確定しますか？確定後は変更できません。</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCloseStep(0)}
+                className="flex-1 border border-gray-300 text-gray-600 font-bold py-3 rounded-xl text-sm"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={() => { setCloseStep(2); startCountdown(); }}
+                className="flex-1 bg-red-500 text-white font-bold py-3 rounded-xl text-sm"
+              >
+                確定へ進む
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 modal */}
+      {closeStep === 2 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center px-4 z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <p className="font-bold text-gray-800 text-lg">最終確認</p>
+            <p className="text-sm text-gray-500">確定すると以降は一切変更できなくなります。本当によろしいですか？</p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setCloseStep(1)}
+                className="flex-1 border border-gray-300 text-gray-600 font-bold py-3 rounded-xl text-sm"
+              >
+                戻る
+              </button>
+              <button
+                onClick={closeGroup}
+                disabled={countingDown}
+                className="flex-1 bg-red-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl text-sm transition-colors"
+              >
+                {countingDown ? `${countdown}秒後に確定できます` : "確定する"}
+              </button>
+            </div>
           </div>
         </div>
       )}
