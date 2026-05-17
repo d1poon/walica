@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { calcSettlement } from "@/lib/settlement";
+import { getPokemonId, getPokemonSprite } from "@/lib/pokemon";
 
 type Member = { id: string; name: string };
 type ExpenseSplit = { memberId: string; amount: number };
@@ -201,16 +202,23 @@ export default function GroupPage() {
 
       {/* Members */}
       <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">メンバー</p>
-        <div className="flex flex-wrap gap-2">
-          {group.members.map((m) => (
-            <span
-              key={m.id}
-              className="bg-gray-100 text-gray-700 text-sm px-3 py-1 rounded-full"
-            >
-              {m.name}
-            </span>
-          ))}
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">メンバー</p>
+        <div className="flex flex-wrap gap-3">
+          {group.members.map((m) => {
+            const pokeId = getPokemonId(m.name);
+            return (
+              <div key={m.id} className="flex flex-col items-center gap-1">
+                <img
+                  src={getPokemonSprite(pokeId)}
+                  alt={m.name}
+                  width={48}
+                  height={48}
+                  className="pixelated"
+                />
+                <span className="text-xs text-gray-700 font-medium">{m.name}</span>
+              </div>
+            );
+          })}
           {group.members.length === 0 && (
             <span className="text-gray-400 text-sm">まだ誰もいません</span>
           )}
@@ -368,7 +376,16 @@ export default function GroupPage() {
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">残高</p>
             {balances.map((b) => (
               <div key={b.memberId} className="flex justify-between items-center py-1.5 border-b last:border-0">
-                <span className="text-sm text-gray-700">{b.name}</span>
+                <div className="flex items-center gap-2">
+                  <img
+                    src={getPokemonSprite(getPokemonId(b.name))}
+                    alt={b.name}
+                    width={32}
+                    height={32}
+                    className="pixelated"
+                  />
+                  <span className="text-sm text-gray-700">{b.name}</span>
+                </div>
                 <span
                   className={`text-sm font-bold ${
                     b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-red-500" : "text-gray-400"
