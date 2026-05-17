@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ワリカン",
+  title: "わりかん！",
   description: "かんたん割り勘アプリ",
 };
 
