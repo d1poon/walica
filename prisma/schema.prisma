@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Group {
+  id        String    @id
+  name      String
+  createdAt DateTime  @default(now())
+  members   Member[]
+  expenses  Expense[]
+}
+
+model Member {
+  id           String         @id @default(cuid())
+  name         String
+  groupId      String
+  group        Group          @relation(fields: [groupId], references: [id])
+  createdAt    DateTime       @default(now())
+  paidExpenses Expense[]      @relation("PaidBy")
+  splits       ExpenseSplit[]
+}
+
+model Expense {
+  id          String         @id @default(cuid())
+  description String
+  amount      Float
+  groupId     String
+  group       Group          @relation(fields: [groupId], references: [id])
+  payerId     String
+  payer       Member         @relation("PaidBy", fields: [payerId], references: [id])
+  createdAt   DateTime       @default(now())
+  splits      ExpenseSplit[]
+}
+
+model ExpenseSplit {
+  id        String  @id @default(cuid())
+  expenseId String
+  expense   Expense @relation(fields: [expenseId], references: [id])
+  memberId  String
+  member    Member  @relation(fields: [memberId], references: [id])
+  amount    Float
+}
