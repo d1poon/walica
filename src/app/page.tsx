@@ -24,8 +24,9 @@ export default function Home() {
     <div className="min-h-screen flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
-          <img src="/logo.png" alt="わりかん！" className="w-48 mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">
+          <img src="/logo.png" alt="わりかん！" className="w-40 mx-auto mb-1" />
+          <h1 className="text-3xl font-bold text-gray-800">わりかん！</h1>
+          <p className="text-gray-500 mt-2 text-sm">
             グループを作ってURLを共有するだけ
           </p>
         </div>
