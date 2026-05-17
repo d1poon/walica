@@ -241,11 +241,10 @@ export default function GroupPage() {
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">メンバー</p>
         <div className="flex flex-wrap gap-3">
           {group.members.map((m) => {
-            const pokeId = getPokemonId(m.name);
             return (
               <div key={m.id} className="flex flex-col items-center gap-1">
                 <img
-                  src={getPokemonSprite(pokeId)}
+                  src={getPokemonSprite(m.pokemonId)}
                   alt={m.name}
                   width={48}
                   height={48}
