@@ -2,9 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { calcSettlement } from "@/lib/settlement";
-import { getPokemonId, getPokemonSprite } from "@/lib/pokemon";
+import { getPokemonSprite } from "@/lib/pokemon";
 
-type Member = { id: string; name: string };
+type Member = { id: string; name: string; pokemonId: number };
 type ExpenseSplit = { memberId: string; amount: number };
 type Expense = {
   id: string;
@@ -149,7 +149,7 @@ export default function GroupPage() {
       .flatMap((e) => e.splits)
       .filter((s) => s.memberId === m.id)
       .reduce((s, sp) => s + sp.amount, 0);
-    return { memberId: m.id, name: m.name, amount: paid - owed };
+    return { memberId: m.id, name: m.name, pokemonId: m.pokemonId, amount: paid - owed };
   });
   const transfers = calcSettlement(balances);
 
@@ -207,7 +207,7 @@ export default function GroupPage() {
                       }}
                       className="flex items-center gap-2 border border-gray-300 hover:border-emerald-400 hover:bg-emerald-50 rounded-xl px-3 py-2 text-sm transition-colors"
                     >
-                      <img src={getPokemonSprite(getPokemonId(m.name))} alt={m.name} width={28} height={28} className="pixelated" />
+                      <img src={getPokemonSprite(m.pokemonId)} alt={m.name} width={28} height={28} className="pixelated" />
                       {m.name}
                     </button>
                   ))}
@@ -414,7 +414,7 @@ export default function GroupPage() {
               <div key={b.memberId} className="flex justify-between items-center py-1.5 border-b last:border-0">
                 <div className="flex items-center gap-2">
                   <img
-                    src={getPokemonSprite(getPokemonId(b.name))}
+                    src={getPokemonSprite(b.pokemonId)}
                     alt={b.name}
                     width={32}
                     height={32}

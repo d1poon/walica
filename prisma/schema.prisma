@@ -18,6 +18,7 @@ model Group {
 model Member {
   id           String         @id @default(cuid())
   name         String
+  pokemonId    Int      @default(1)
   groupId      String
   group        Group          @relation(fields: [groupId], references: [id])
   createdAt    DateTime       @default(now())

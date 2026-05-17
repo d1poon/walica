@@ -13,8 +13,9 @@ export async function POST(
   const group = await prisma.group.findUnique({ where: { id: groupId } });
   if (!group) return NextResponse.json({ error: "not found" }, { status: 404 });
 
+  const pokemonId = Math.floor(Math.random() * 151) + 1;
   const member = await prisma.member.create({
-    data: { name: name.trim(), groupId },
+    data: { name: name.trim(), groupId, pokemonId },
   });
   return NextResponse.json(member);
 }
