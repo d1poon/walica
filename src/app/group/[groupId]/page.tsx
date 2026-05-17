@@ -62,7 +62,7 @@ export default function GroupPage() {
     if (group) setExpSplitIds(group.members.map((m) => m.id));
   }, [group?.members.length]);
 
-  async function joinGroup(e: React.FormEvent) {
+  async function addMember(e: React.FormEvent, asSelf: boolean) {
     e.preventDefault();
     if (!nameInput.trim()) return;
     const res = await fetch(`/api/groups/${groupId}/members`, {
@@ -71,9 +71,12 @@ export default function GroupPage() {
       body: JSON.stringify({ name: nameInput.trim() }),
     });
     const member = await res.json();
-    localStorage.setItem(storageKey, JSON.stringify({ id: member.id, name: member.name }));
-    setMyMemberId(member.id);
-    setMyName(member.name);
+    if (asSelf) {
+      localStorage.setItem(storageKey, JSON.stringify({ id: member.id, name: member.name }));
+      setMyMemberId(member.id);
+      setMyName(member.name);
+    }
+    setNameInput("");
     fetchGroup();
   }
 
@@ -165,33 +168,36 @@ export default function GroupPage() {
         <p className="text-xs text-gray-400">このURLを友達にLINEで送ろう</p>
       </div>
 
-      {/* Join section */}
-      {!myMemberId ? (
-        <div className="bg-white rounded-2xl shadow-sm p-5 mb-4">
-          <p className="font-medium text-gray-700 mb-3">あなたの名前を入力して参加</p>
-          <form onSubmit={joinGroup} className="flex gap-2">
-            <input
-              type="text"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              placeholder="名前"
-              className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-              maxLength={20}
-              required
-            />
-            <button
-              type="submit"
-              className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold"
-            >
-              参加
-            </button>
-          </form>
-        </div>
-      ) : (
-        <div className="bg-emerald-50 rounded-2xl px-4 py-2 mb-4 text-sm text-emerald-700 font-medium">
-          ✓ {myName} として参加中
-        </div>
-      )}
+      {/* Join / Add member section */}
+      <div className="bg-white rounded-2xl shadow-sm p-5 mb-4">
+        {myMemberId ? (
+          <p className="text-sm text-emerald-700 font-medium mb-3">✓ {myName} として参加中</p>
+        ) : (
+          <p className="font-medium text-gray-700 mb-3">名前を入力して参加</p>
+        )}
+        <form onSubmit={(e) => addMember(e, !myMemberId)} className="flex gap-2">
+          <input
+            type="text"
+            value={nameInput}
+            onChange={(e) => setNameInput(e.target.value)}
+            placeholder={myMemberId ? "他のメンバーの名前" : "あなたの名前"}
+            className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+            maxLength={20}
+            required
+          />
+          <button
+            type="submit"
+            className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap"
+          >
+            {myMemberId ? "追加" : "参加"}
+          </button>
+        </form>
+        {myMemberId && (
+          <p className="text-xs text-gray-400 mt-2">
+            スマホを持っていない人の分も追加できます
+          </p>
+        )}
+      </div>
 
       {/* Members */}
       <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
