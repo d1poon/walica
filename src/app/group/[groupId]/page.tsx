@@ -234,13 +234,18 @@ export default function GroupPage() {
     <div className="min-h-screen flex flex-col max-w-lg mx-auto px-4 pb-8">
       {/* Header */}
       <div className="pt-6 pb-4">
-        <div className="flex items-center justify-between mb-1">
-          <h1 className="text-2xl font-bold text-gray-800">{group.name}</h1>
-          <button onClick={copyUrl} className="text-sm bg-emerald-100 text-emerald-700 px-3 py-1.5 rounded-full font-medium">
+        <h1 className="text-2xl font-bold text-gray-800 mb-3">{group.name}</h1>
+        <div className="flex gap-2">
+          <button
+            onClick={() => window.open(`https://line.me/R/msg/text/?${encodeURIComponent(`${group.name}のわりかん！\n${window.location.href}`)}`, "_blank")}
+            className="flex-1 text-sm bg-[#06C755] text-white px-3 py-2 rounded-xl font-bold"
+          >
+            LINEで送る
+          </button>
+          <button onClick={copyUrl} className="text-sm bg-emerald-100 text-emerald-700 px-3 py-2 rounded-xl font-medium whitespace-nowrap">
             {copied ? "コピーした!" : "URLをコピー"}
           </button>
         </div>
-        <p className="text-xs text-gray-400">このURLを友達にLINEで送ろう</p>
       </div>
 
       {isClosed && (
