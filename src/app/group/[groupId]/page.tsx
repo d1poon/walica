@@ -42,6 +42,8 @@ export default function GroupPage() {
   const [closeStep, setCloseStep] = useState<0 | 1 | 2>(0);
   const [countdown, setCountdown] = useState(3);
   const [countingDown, setCountingDown] = useState(false);
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "amount">("newest");
+  const [filterPayerId, setFilterPayerId] = useState<string | null>(null);
 
   const fetchGroup = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}`);
@@ -229,6 +231,13 @@ export default function GroupPage() {
   const transfers = calcSettlement(balances);
   const totalExpense = group.expenses.reduce((s, e) => s + e.amount, 0);
   const customTotal = expSplitIds.reduce((s, id) => s + Number(customAmounts[id] ?? 0), 0);
+  const displayedExpenses = group.expenses
+    .filter((e) => filterPayerId === null || e.payer.id === filterPayerId)
+    .sort((a, b) => {
+      if (sortOrder === "oldest") return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+      if (sortOrder === "amount") return b.amount - a.amount;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto px-4 pb-8">
@@ -319,6 +328,41 @@ export default function GroupPage() {
             >
               {showExpForm && !editingExpenseId ? "キャンセル" : "+ 支払いを追加"}
             </button>
+          )}
+
+          {!showExpForm && group.expenses.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">並び替え</span>
+                <select
+                  value={sortOrder}
+                  onChange={(e) => setSortOrder(e.target.value as "newest" | "oldest" | "amount")}
+                  className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs text-gray-700 bg-white"
+                >
+                  <option value="newest">新しい順</option>
+                  <option value="oldest">古い順</option>
+                  <option value="amount">金額が高い順</option>
+                </select>
+              </div>
+              <div className="flex gap-1.5 flex-wrap items-center">
+                <span className="text-xs text-gray-500 whitespace-nowrap">絞り込み</span>
+                <button
+                  onClick={() => setFilterPayerId(null)}
+                  className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterPayerId === null ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-gray-600 border-gray-300"}`}
+                >
+                  全員
+                </button>
+                {group.members.map((m) => (
+                  <button
+                    key={m.id}
+                    onClick={() => setFilterPayerId(filterPayerId === m.id ? null : m.id)}
+                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${filterPayerId === m.id ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-gray-600 border-gray-300"}`}
+                  >
+                    {m.name}
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
 
           {showExpForm && (
@@ -455,8 +499,10 @@ export default function GroupPage() {
 
           {group.expenses.length === 0 ? (
             <div className="text-center text-gray-400 py-8 text-sm">まだ支払いがありません</div>
+          ) : displayedExpenses.length === 0 ? (
+            <div className="text-center text-gray-400 py-8 text-sm">該当する支払いがありません</div>
           ) : (
-            group.expenses.map((exp) => (
+            displayedExpenses.map((exp) => (
               <div key={exp.id} className="bg-white rounded-2xl shadow-sm p-4">
                 <div className="flex justify-between items-start">
                   <div>
