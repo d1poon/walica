@@ -9,7 +9,3 @@ export function getPokemonId(name: string): number {
 export function getPokemonSprite(id: number): string {
   return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
 }
-
-export function getPokeballSprite(): string {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png`;
-}
