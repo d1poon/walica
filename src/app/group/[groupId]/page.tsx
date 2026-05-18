@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { calcSettlement } from "@/lib/settlement";
-import { getPokemonSprite } from "@/lib/pokemon";
+import { getPokemonSprite, getPokeballSprite } from "@/lib/pokemon";
 
 type Member = { id: string; name: string; pokemonId: number };
 type ExpenseSplit = { memberId: string; amount: number };
@@ -269,7 +269,10 @@ export default function GroupPage() {
         <div className="flex flex-wrap gap-3 mb-3">
           {group.members.map((m) => (
             <div key={m.id} className="flex flex-col items-center gap-1 relative">
-              <img src={getPokemonSprite(m.pokemonId)} alt={m.name} width={48} height={48} className="pixelated" />
+              <div className="relative w-12 h-12">
+                <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
+                <img src={getPokemonSprite(m.pokemonId)} alt={m.name} className="relative z-10 w-full h-full pixelated" />
+              </div>
               <span className="text-xs text-gray-700 font-medium">{m.name}</span>
               {!isClosed && (
                 <button
@@ -506,7 +509,10 @@ export default function GroupPage() {
               <div key={exp.id} className="bg-white rounded-2xl shadow-sm p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start gap-3">
-                    <img src={getPokemonSprite(exp.payer.pokemonId)} alt={exp.payer.name} width={40} height={40} className="pixelated mt-0.5 shrink-0" />
+                    <div className="relative w-10 h-10 mt-0.5 shrink-0">
+                      <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
+                      <img src={getPokemonSprite(exp.payer.pokemonId)} alt={exp.payer.name} className="relative z-10 w-full h-full pixelated" />
+                    </div>
                     <div>
                       <p className="font-semibold text-gray-800">{exp.description}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -557,7 +563,10 @@ export default function GroupPage() {
             {balances.map((b) => (
               <div key={b.memberId} className="flex justify-between items-center py-1.5 border-b last:border-0">
                 <div className="flex items-center gap-2">
-                  <img src={getPokemonSprite(b.pokemonId)} alt={b.name} width={32} height={32} className="pixelated" />
+                  <div className="relative w-8 h-8">
+                    <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
+                    <img src={getPokemonSprite(b.pokemonId)} alt={b.name} className="relative z-10 w-full h-full pixelated" />
+                  </div>
                   <span className="text-sm text-gray-700">{b.name}</span>
                 </div>
                 <span className={`text-sm font-bold ${b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-red-500" : "text-gray-400"}`}>
