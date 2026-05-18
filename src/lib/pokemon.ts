@@ -6,6 +6,6 @@ export function getPokemonId(name: string): number {
   return (hash % 151) + 1;
 }
 
-export function getPokemonSprite(id: number): string {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`;
+export function getPokemonSprite(_id: number): string {
+  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/items/poke-ball.png`;
 }
