@@ -269,8 +269,8 @@ export default function GroupPage() {
         <div className="flex flex-wrap gap-3 mb-3">
           {group.members.map((m) => (
             <div key={m.id} className="flex flex-col items-center gap-1 relative">
-              <div className="relative w-12 h-12">
-                <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
+              <div className="relative w-12 h-12 rounded-full overflow-hidden border-2 border-gray-200">
+                <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-cover" />
                 <img src={getPokemonSprite(m.pokemonId)} alt={m.name} className="relative z-10 w-full h-full pixelated" />
               </div>
               <span className="text-xs text-gray-700 font-medium">{m.name}</span>
@@ -509,8 +509,8 @@ export default function GroupPage() {
               <div key={exp.id} className="bg-white rounded-2xl shadow-sm p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start gap-3">
-                    <div className="relative w-10 h-10 mt-0.5 shrink-0">
-                      <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
+                    <div className="relative w-10 h-10 mt-0.5 shrink-0 rounded-full overflow-hidden border-2 border-gray-200">
+                      <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-cover" />
                       <img src={getPokemonSprite(exp.payer.pokemonId)} alt={exp.payer.name} className="relative z-10 w-full h-full pixelated" />
                     </div>
                     <div>
@@ -563,8 +563,8 @@ export default function GroupPage() {
             {balances.map((b) => (
               <div key={b.memberId} className="flex justify-between items-center py-1.5 border-b last:border-0">
                 <div className="flex items-center gap-2">
-                  <div className="relative w-8 h-8">
-                    <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-contain opacity-40" />
+                  <div className="relative w-8 h-8 rounded-full overflow-hidden border-2 border-gray-200">
+                    <img src={getPokeballSprite()} alt="" className="absolute inset-0 w-full h-full object-cover" />
                     <img src={getPokemonSprite(b.pokemonId)} alt={b.name} className="relative z-10 w-full h-full pixelated" />
                   </div>
                   <span className="text-sm text-gray-700">{b.name}</span>
