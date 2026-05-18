@@ -6,13 +6,24 @@ export async function POST(
   { params }: { params: Promise<{ groupId: string }> }
 ) {
   const { groupId } = await params;
-  const { description, amount, payerId, splitMemberIds } = await request.json();
+  const { description, amount, payerId, splitMemberIds, splitAmounts } = await request.json();
 
-  if (!description || !amount || !payerId || !splitMemberIds?.length) {
+  if (!description || !amount || !payerId) {
     return NextResponse.json({ error: "missing fields" }, { status: 400 });
   }
 
-  const splitAmount = amount / splitMemberIds.length;
+  let splits: { memberId: string; amount: number }[];
+  if (splitAmounts && Object.keys(splitAmounts).length > 0) {
+    splits = Object.entries(splitAmounts).map(([memberId, amt]) => ({
+      memberId,
+      amount: Number(amt),
+    }));
+  } else if (splitMemberIds?.length) {
+    const splitAmount = Number(amount) / splitMemberIds.length;
+    splits = splitMemberIds.map((memberId: string) => ({ memberId, amount: splitAmount }));
+  } else {
+    return NextResponse.json({ error: "missing split info" }, { status: 400 });
+  }
 
   const expense = await prisma.expense.create({
     data: {
@@ -20,12 +31,7 @@ export async function POST(
       amount: Number(amount),
       groupId,
       payerId,
-      splits: {
-        create: splitMemberIds.map((memberId: string) => ({
-          memberId,
-          amount: splitAmount,
-        })),
-      },
+      splits: { create: splits },
     },
     include: { payer: true, splits: true },
   });

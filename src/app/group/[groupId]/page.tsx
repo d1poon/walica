@@ -34,6 +34,9 @@ export default function GroupPage() {
   const [expAmount, setExpAmount] = useState("");
   const [expPayerId, setExpPayerId] = useState("");
   const [expSplitIds, setExpSplitIds] = useState<string[]>([]);
+  const [customSplitMode, setCustomSplitMode] = useState(false);
+  const [customAmounts, setCustomAmounts] = useState<{ [memberId: string]: string }>({});
+  const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [addingExp, setAddingExp] = useState(false);
   const [showExpForm, setShowExpForm] = useState(false);
   const [closeStep, setCloseStep] = useState<0 | 1 | 2>(0);
@@ -75,24 +78,80 @@ export default function GroupPage() {
     fetchGroup();
   }
 
-  async function addExpense(e: React.FormEvent) {
-    e.preventDefault();
-    if (!expDesc || !expAmount || !expPayerId || expSplitIds.length === 0) return;
-    setAddingExp(true);
-    await fetch(`/api/groups/${groupId}/expenses`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        description: expDesc,
-        amount: Number(expAmount),
-        payerId: expPayerId,
-        splitMemberIds: expSplitIds,
-      }),
-    });
+  function cancelExpForm() {
+    setShowExpForm(false);
+    setEditingExpenseId(null);
     setExpDesc("");
     setExpAmount("");
     setExpPayerId("");
-    setShowExpForm(false);
+    setExpSplitIds(group?.members.map((m) => m.id) ?? []);
+    setCustomSplitMode(false);
+    setCustomAmounts({});
+  }
+
+  function openEditForm(exp: Expense) {
+    setExpDesc(exp.description);
+    setExpAmount(String(exp.amount));
+    setExpPayerId(exp.payer.id);
+    setExpSplitIds(exp.splits.map((s) => s.memberId));
+
+    const equalAmount = exp.amount / exp.splits.length;
+    const isEqual = exp.splits.every((s) => Math.abs(s.amount - equalAmount) < 0.01);
+    if (!isEqual) {
+      setCustomSplitMode(true);
+      const amounts: { [id: string]: string } = {};
+      exp.splits.forEach((s) => { amounts[s.memberId] = String(Math.round(s.amount)); });
+      setCustomAmounts(amounts);
+    } else {
+      setCustomSplitMode(false);
+      setCustomAmounts({});
+    }
+
+    setEditingExpenseId(exp.id);
+    setShowExpForm(true);
+  }
+
+  async function submitExpense(e: React.FormEvent) {
+    e.preventDefault();
+    if (!expDesc || !expAmount || !expPayerId || expSplitIds.length === 0) return;
+
+    if (customSplitMode) {
+      const total = expSplitIds.reduce((s, id) => s + Number(customAmounts[id] ?? 0), 0);
+      if (Math.abs(total - Number(expAmount)) > 0.5) {
+        alert(`金額の合計が一致しません（合計: ¥${total.toLocaleString()} / 請求額: ¥${Number(expAmount).toLocaleString()}）`);
+        return;
+      }
+    }
+
+    setAddingExp(true);
+
+    const body = customSplitMode
+      ? {
+          description: expDesc,
+          amount: Number(expAmount),
+          payerId: expPayerId,
+          splitAmounts: Object.fromEntries(
+            expSplitIds.map((id) => [id, Number(customAmounts[id] ?? 0)])
+          ),
+        }
+      : {
+          description: expDesc,
+          amount: Number(expAmount),
+          payerId: expPayerId,
+          splitMemberIds: expSplitIds,
+        };
+
+    const url = editingExpenseId
+      ? `/api/groups/${groupId}/expenses/${editingExpenseId}`
+      : `/api/groups/${groupId}/expenses`;
+
+    await fetch(url, {
+      method: editingExpenseId ? "PATCH" : "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+    cancelExpForm();
     setAddingExp(false);
     fetchGroup();
   }
@@ -168,6 +227,8 @@ export default function GroupPage() {
     return { memberId: m.id, name: m.name, pokemonId: m.pokemonId, amount: paid - owed };
   });
   const transfers = calcSettlement(balances);
+  const totalExpense = group.expenses.reduce((s, e) => s + e.amount, 0);
+  const customTotal = expSplitIds.reduce((s, id) => s + Number(customAmounts[id] ?? 0), 0);
 
   return (
     <div className="min-h-screen flex flex-col max-w-lg mx-auto px-4 pb-8">
@@ -210,19 +271,21 @@ export default function GroupPage() {
             <span className="text-gray-400 text-sm">まだ誰もいません</span>
           )}
         </div>
-        {!isClosed && <form onSubmit={addMember} className="flex gap-2">
-          <input
-            type="text"
-            value={nameInput}
-            onChange={(e) => setNameInput(e.target.value)}
-            placeholder="名前を入力してメンバー追加"
-            className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
-            maxLength={20}
-          />
-          <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">
-            追加
-          </button>
-        </form>}
+        {!isClosed && (
+          <form onSubmit={addMember} className="flex gap-2">
+            <input
+              type="text"
+              value={nameInput}
+              onChange={(e) => setNameInput(e.target.value)}
+              placeholder="名前を入力してメンバー追加"
+              className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400"
+              maxLength={20}
+            />
+            <button type="submit" className="bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap">
+              追加
+            </button>
+          </form>
+        )}
       </div>
 
       {/* Tabs */}
@@ -246,16 +309,23 @@ export default function GroupPage() {
         <div className="space-y-3">
           {!isClosed && group.members.length >= 2 && (
             <button
-              onClick={() => setShowExpForm(!showExpForm)}
+              onClick={() => (showExpForm && !editingExpenseId ? cancelExpForm() : setShowExpForm(true))}
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl text-sm transition-colors"
             >
-              {showExpForm ? "キャンセル" : "+ 支払いを追加"}
+              {showExpForm && !editingExpenseId ? "キャンセル" : "+ 支払いを追加"}
             </button>
           )}
 
           {showExpForm && (
-            <form onSubmit={addExpense} className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
-              <p className="font-semibold text-gray-700">支払いを追加</p>
+            <form onSubmit={submitExpense} className="bg-white rounded-2xl shadow-sm p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="font-semibold text-gray-700">{editingExpenseId ? "支払いを編集" : "支払いを追加"}</p>
+                {editingExpenseId && (
+                  <button type="button" onClick={cancelExpForm} className="text-xs text-gray-400 hover:text-gray-600">
+                    キャンセル
+                  </button>
+                )}
+              </div>
               <div>
                 <label className="text-xs text-gray-500 mb-1 block">内容</label>
                 <input
@@ -294,29 +364,86 @@ export default function GroupPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs text-gray-500 mb-1 block">割り勘メンバー</label>
-                <div className="flex flex-wrap gap-2">
-                  {group.members.map((m) => (
-                    <button
-                      key={m.id}
-                      type="button"
-                      onClick={() => toggleSplit(m.id)}
-                      className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
-                        expSplitIds.includes(m.id) ? "bg-emerald-500 text-white border-emerald-500" : "bg-white text-gray-600 border-gray-300"
-                      }`}
-                    >
-                      {m.name}
-                    </button>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs text-gray-500">割り勘メンバー</label>
+                  <button
+                    type="button"
+                    onClick={() => { setCustomSplitMode(!customSplitMode); setCustomAmounts({}); }}
+                    className="text-xs text-emerald-600 underline"
+                  >
+                    {customSplitMode ? "均等割りに戻す" : "金額を個別指定"}
+                  </button>
                 </div>
-                {expSplitIds.length > 0 && expAmount && (
+                {!customSplitMode ? (
+                  <div className="flex flex-wrap gap-2">
+                    {group.members.map((m) => (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() => toggleSplit(m.id)}
+                        className={`text-sm px-3 py-1.5 rounded-full border transition-colors ${
+                          expSplitIds.includes(m.id)
+                            ? "bg-emerald-500 text-white border-emerald-500"
+                            : "bg-white text-gray-600 border-gray-300"
+                        }`}
+                      >
+                        {m.name}
+                      </button>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {group.members.map((m) => (
+                      <div key={m.id} className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => toggleSplit(m.id)}
+                          className={`text-sm px-3 py-1.5 rounded-full border transition-colors whitespace-nowrap ${
+                            expSplitIds.includes(m.id)
+                              ? "bg-emerald-500 text-white border-emerald-500"
+                              : "bg-white text-gray-300 border-gray-200"
+                          }`}
+                        >
+                          {m.name}
+                        </button>
+                        {expSplitIds.includes(m.id) && (
+                          <input
+                            type="number"
+                            value={customAmounts[m.id] ?? ""}
+                            onChange={(e) =>
+                              setCustomAmounts((prev) => ({ ...prev, [m.id]: e.target.value }))
+                            }
+                            placeholder="0"
+                            min="0"
+                            className="flex-1 border border-gray-300 rounded-xl px-3 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {!customSplitMode && expSplitIds.length > 0 && expAmount && (
                   <p className="text-xs text-gray-400 mt-1">
                     1人あたり ¥{Math.ceil(Number(expAmount) / expSplitIds.length).toLocaleString()}
                   </p>
                 )}
+                {customSplitMode && expAmount && (
+                  <p className={`text-xs mt-1 ${Math.abs(customTotal - Number(expAmount)) < 0.5 ? "text-emerald-500" : "text-red-400"}`}>
+                    合計 ¥{customTotal.toLocaleString()} / ¥{Number(expAmount).toLocaleString()}
+                    {Math.abs(customTotal - Number(expAmount)) < 0.5
+                      ? " ✓"
+                      : `（¥${Math.abs(Number(expAmount) - customTotal).toLocaleString()} 不足）`}
+                  </p>
+                )}
               </div>
-              <button type="submit" disabled={addingExp} className="w-full bg-emerald-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl text-sm">
-                {addingExp ? "追加中..." : "追加する"}
+              <button
+                type="submit"
+                disabled={addingExp}
+                className="w-full bg-emerald-500 disabled:bg-gray-300 text-white font-bold py-3 rounded-xl text-sm"
+              >
+                {addingExp
+                  ? (editingExpenseId ? "保存中..." : "追加中...")
+                  : (editingExpenseId ? "保存する" : "追加する")}
               </button>
             </form>
           )}
@@ -329,14 +456,30 @@ export default function GroupPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <p className="font-semibold text-gray-800">{exp.description}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{exp.payer.name}が支払い・{exp.splits.length}人で割り勘</p>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                      {new Date(exp.createdAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })} · {exp.payer.name}が支払い・
+                      {exp.splits.length === group.members.length
+                        ? `${exp.splits.length}人で割り勘`
+                        : exp.splits.map((s) => group.members.find((m) => m.id === s.memberId)?.name ?? "").join("・") + "で割り勘"}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-800">¥{exp.amount.toLocaleString()}</p>
                     {!isClosed && (
-                      <button onClick={() => deleteExpense(exp.id)} className="text-xs text-red-400 hover:text-red-600 mt-1">
-                        削除
-                      </button>
+                      <div className="flex gap-2 justify-end mt-1">
+                        <button
+                          onClick={() => openEditForm(exp)}
+                          className="text-xs text-emerald-500 hover:text-emerald-700"
+                        >
+                          編集
+                        </button>
+                        <button
+                          onClick={() => deleteExpense(exp.id)}
+                          className="text-xs text-red-400 hover:text-red-600"
+                        >
+                          削除
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -349,6 +492,12 @@ export default function GroupPage() {
       {/* Settlement tab */}
       {tab === "settlement" && (
         <div className="space-y-3">
+          <div className="bg-white rounded-2xl shadow-sm p-5">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">合計支出</p>
+            <p className="text-2xl font-bold text-gray-800">¥{totalExpense.toLocaleString()}</p>
+            <p className="text-xs text-gray-400 mt-0.5">{group.expenses.length}件 · {group.members.length}人</p>
+          </div>
+
           <div className="bg-white rounded-2xl shadow-sm p-5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">残高</p>
             {balances.map((b) => (
