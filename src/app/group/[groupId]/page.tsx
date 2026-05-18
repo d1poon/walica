@@ -505,14 +505,17 @@ export default function GroupPage() {
             displayedExpenses.map((exp) => (
               <div key={exp.id} className="bg-white rounded-2xl shadow-sm p-4">
                 <div className="flex justify-between items-start">
-                  <div>
-                    <p className="font-semibold text-gray-800">{exp.description}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {new Date(exp.createdAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })} · {exp.payer.name}が支払い・
-                      {exp.splits.length === group.members.length
-                        ? `${exp.splits.length}人で割り勘`
-                        : exp.splits.map((s) => group.members.find((m) => m.id === s.memberId)?.name ?? "").join("・") + "で割り勘"}
-                    </p>
+                  <div className="flex items-start gap-3">
+                    <img src={getPokemonSprite(exp.payer.pokemonId)} alt={exp.payer.name} width={40} height={40} className="pixelated mt-0.5 shrink-0" />
+                    <div>
+                      <p className="font-semibold text-gray-800">{exp.description}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        {new Date(exp.createdAt).toLocaleDateString("ja-JP", { month: "numeric", day: "numeric" })} · {exp.payer.name}が支払い・
+                        {exp.splits.length === group.members.length
+                          ? `${exp.splits.length}人で割り勘`
+                          : exp.splits.map((s) => group.members.find((m) => m.id === s.memberId)?.name ?? "").join("・") + "で割り勘"}
+                      </p>
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-gray-800">¥{exp.amount.toLocaleString()}</p>
