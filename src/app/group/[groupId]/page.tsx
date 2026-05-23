@@ -149,14 +149,26 @@ export default function GroupPage() {
       ? `/api/groups/${groupId}/expenses/${editingExpenseId}`
       : `/api/groups/${groupId}/expenses`;
 
-    await fetch(url, {
+    const res = await fetch(url, {
       method: editingExpenseId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
 
-    cancelExpForm();
     setAddingExp(false);
+
+    if (!res.ok) {
+      if (res.status === 404) {
+        alert("この支払いは他のメンバーにより削除されました。最新の状態に更新します。");
+        cancelExpForm();
+        fetchGroup();
+      } else {
+        alert("保存に失敗しました。もう一度お試しください。");
+      }
+      return;
+    }
+
+    cancelExpForm();
     fetchGroup();
   }
 
@@ -188,7 +200,12 @@ export default function GroupPage() {
   }
 
   async function deleteExpense(expenseId: string) {
-    await fetch(`/api/groups/${groupId}/expenses/${expenseId}`, { method: "DELETE" });
+    const res = await fetch(`/api/groups/${groupId}/expenses/${expenseId}`, { method: "DELETE" });
+    // 404はすでに他のメンバーが削除済みなので、そのままリフレッシュして問題なし
+    if (!res.ok && res.status !== 404) {
+      alert("削除に失敗しました。もう一度お試しください。");
+      return;
+    }
     fetchGroup();
   }
 

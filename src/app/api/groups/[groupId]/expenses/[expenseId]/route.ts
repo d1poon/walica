@@ -35,6 +35,12 @@ export async function PATCH(
     return NextResponse.json({ error: "missing split info" }, { status: 400 });
   }
 
+  // splitを削除してからupdateするため、存在チェックを先に行う
+  const existing = await prisma.expense.findUnique({ where: { id: expenseId } });
+  if (!existing) {
+    return NextResponse.json({ error: "not found" }, { status: 404 });
+  }
+
   await prisma.expenseSplit.deleteMany({ where: { expenseId } });
   const expense = await prisma.expense.update({
     where: { id: expenseId },
