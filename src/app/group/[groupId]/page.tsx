@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { calcSettlement } from "@/lib/settlement";
 import { PokemonAvatar } from "@/components/PokemonAvatar";
+import { PokemonDexModal } from "@/components/PokemonDexModal";
 
 type Member = { id: string; name: string; pokemonId: number };
 type ExpenseSplit = { memberId: string; amount: number };
@@ -44,6 +45,7 @@ export default function GroupPage() {
   const [countingDown, setCountingDown] = useState(false);
   const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "amount">("newest");
   const [filterPayerId, setFilterPayerId] = useState<string | null>(null);
+  const [selectedPokemonId, setSelectedPokemonId] = useState<number | null>(null);
 
   const fetchGroup = useCallback(async () => {
     const res = await fetch(`/api/groups/${groupId}`);
@@ -269,12 +271,18 @@ export default function GroupPage() {
         <div className="flex flex-wrap gap-3 mb-3">
           {group.members.map((m) => (
             <div key={m.id} className="flex flex-col items-center gap-1 relative">
-              <PokemonAvatar pokemonId={m.pokemonId} alt={m.name} size={48} />
+              <PokemonAvatar
+                pokemonId={m.pokemonId}
+                alt={m.name}
+                size={48}
+                onClick={() => setSelectedPokemonId(m.pokemonId)}
+              />
               <span className="text-xs text-gray-700 font-medium">{m.name}</span>
               {!isClosed && (
                 <button
-                  onClick={() => deleteMember(m.id)}
-                  className="absolute -top-1 -right-1 w-4 h-4 bg-gray-300 hover:bg-red-400 text-white rounded-full text-xs flex items-center justify-center leading-none"
+                  // stopPropagation でアバターのonClickと混在しないようにする
+                  onClick={(e) => { e.stopPropagation(); deleteMember(m.id); }}
+                  className="absolute -top-1 -right-1 w-5 h-5 bg-gray-300 hover:bg-red-400 active:bg-red-500 text-white rounded-full text-xs flex items-center justify-center leading-none"
                 >
                   ×
                 </button>
@@ -506,7 +514,12 @@ export default function GroupPage() {
               <div key={exp.id} className="bg-white rounded-2xl shadow-sm p-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-start gap-3">
-                    <PokemonAvatar pokemonId={exp.payer.pokemonId} alt={exp.payer.name} size={40} />
+                    <PokemonAvatar
+                      pokemonId={exp.payer.pokemonId}
+                      alt={exp.payer.name}
+                      size={40}
+                      onClick={() => setSelectedPokemonId(exp.payer.pokemonId)}
+                    />
                     <div>
                       <p className="font-semibold text-gray-800">{exp.description}</p>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -557,7 +570,12 @@ export default function GroupPage() {
             {balances.map((b) => (
               <div key={b.memberId} className="flex justify-between items-center py-1.5 border-b last:border-0">
                 <div className="flex items-center gap-2">
-                  <PokemonAvatar pokemonId={b.pokemonId} alt={b.name} size={32} />
+                  <PokemonAvatar
+                    pokemonId={b.pokemonId}
+                    alt={b.name}
+                    size={32}
+                    onClick={() => setSelectedPokemonId(b.pokemonId)}
+                  />
                   <span className="text-sm text-gray-700">{b.name}</span>
                 </div>
                 <span className={`text-sm font-bold ${b.amount > 0 ? "text-emerald-600" : b.amount < 0 ? "text-red-500" : "text-gray-400"}`}>
@@ -662,6 +680,14 @@ export default function GroupPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ポケモン図鑑モーダル（z-index は精算モーダルより高く） */}
+      {selectedPokemonId !== null && (
+        <PokemonDexModal
+          pokemonId={selectedPokemonId}
+          onClose={() => setSelectedPokemonId(null)}
+        />
       )}
     </div>
   );
